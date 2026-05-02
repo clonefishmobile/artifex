@@ -57,15 +57,12 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
 /* COMBAT CANVAS */
 #combat-canvas{position:absolute;inset:0;width:100%;height:100%}
 
-/* LOBBY — now a slide-up overlay */
-#lobby{position:absolute;left:0;right:0;bottom:0;max-height:70%;display:none;flex-direction:column;
-  background:linear-gradient(180deg,rgba(13,27,42,.97),rgba(27,40,56,.98) 40%,rgba(15,52,96,.98));
-  z-index:20;border-top-left-radius:18px;border-top-right-radius:18px;
-  box-shadow:0 -4px 30px rgba(0,0,0,.6);
-  padding-bottom:env(safe-area-inset-bottom);overflow-y:auto}
+/* LOBBY — fullscreen */
+#lobby{position:absolute;inset:0;display:none;flex-direction:column;
+  background:linear-gradient(180deg,#0d1b2a,#1b2838 40%,#0f3460);
+  z-index:20;overflow-y:auto}
 #lobby.active{display:flex}
-/* Backdrop behind overlay */
-#lobby-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:19;display:none}
+#lobby-backdrop{display:none}
 #lobby-backdrop.active{display:block}
 #lobby-top{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 4px}
 #lobby-top .phase-label{font-size:13px;color:var(--blue-glow);font-weight:600;letter-spacing:1px}
