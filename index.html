@@ -658,6 +658,156 @@ function gainExp(n){
   updateExpBar();
 }
 
+// ===================== AUDIO SYSTEM =====================
+var audioCtx=null;
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+}
+
+// --- SFX ---
+function sfxHit(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Noise burst (thwack)
+  var buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.08,audioCtx.sampleRate);
+  var d=buf.getChannelData(0);
+  for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+  var src=audioCtx.createBufferSource();src.buffer=buf;
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.08);
+  var flt=audioCtx.createBiquadFilter();flt.type='lowpass';flt.frequency.value=2000;
+  src.connect(flt);flt.connect(g);g.connect(audioCtx.destination);src.start(t);
+  // Low thud
+  var osc=audioCtx.createOscillator();osc.frequency.setValueAtTime(120,t);osc.frequency.exponentialRampToValueAtTime(40,t+0.1);
+  var g2=audioCtx.createGain();g2.gain.setValueAtTime(0.3,t);g2.gain.exponentialRampToValueAtTime(0.01,t+0.1);
+  osc.connect(g2);g2.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.1);
+}
+
+function sfxCrit(){
+  if(!audioCtx)return;sfxHit();var t=audioCtx.currentTime;
+  // High zing
+  var osc=audioCtx.createOscillator();osc.type='sine';
+  osc.frequency.setValueAtTime(1200,t);osc.frequency.exponentialRampToValueAtTime(2400,t+0.05);
+  osc.frequency.exponentialRampToValueAtTime(800,t+0.15);
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.25,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.2);
+  osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.2);
+}
+
+function sfxMiss(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Swoosh sweep down
+  var osc=audioCtx.createOscillator();osc.type='sawtooth';
+  osc.frequency.setValueAtTime(800,t);osc.frequency.exponentialRampToValueAtTime(200,t+0.2);
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.2);
+  var flt=audioCtx.createBiquadFilter();flt.type='bandpass';flt.frequency.value=600;flt.Q.value=2;
+  osc.connect(flt);flt.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.25);
+}
+
+function sfxHeroDamage(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Low rumble thud
+  var osc=audioCtx.createOscillator();osc.type='sine';
+  osc.frequency.setValueAtTime(80,t);osc.frequency.exponentialRampToValueAtTime(30,t+0.2);
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.25);
+  osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.25);
+  // Noise impact
+  var buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate);
+  var d=buf.getChannelData(0);
+  for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);
+  var src=audioCtx.createBufferSource();src.buffer=buf;
+  var g2=audioCtx.createGain();g2.gain.setValueAtTime(0.3,t);g2.gain.exponentialRampToValueAtTime(0.01,t+0.1);
+  src.connect(g2);g2.connect(audioCtx.destination);src.start(t);
+}
+
+function sfxDeath(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Explosion burst
+  var buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.3,audioCtx.sampleRate);
+  var d=buf.getChannelData(0);
+  for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.5);
+  var src=audioCtx.createBufferSource();src.buffer=buf;
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.35,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.3);
+  var flt=audioCtx.createBiquadFilter();flt.type='lowpass';flt.frequency.setValueAtTime(3000,t);
+  flt.frequency.exponentialRampToValueAtTime(200,t+0.3);
+  src.connect(flt);flt.connect(g);g.connect(audioCtx.destination);src.start(t);
+  // Descending tone
+  var osc=audioCtx.createOscillator();osc.frequency.setValueAtTime(400,t);
+  osc.frequency.exponentialRampToValueAtTime(60,t+0.4);
+  var g2=audioCtx.createGain();g2.gain.setValueAtTime(0.2,t);g2.gain.exponentialRampToValueAtTime(0.01,t+0.4);
+  osc.connect(g2);g2.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.4);
+}
+
+function sfxCardSelect(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  var osc=audioCtx.createOscillator();osc.type='sine';
+  osc.frequency.setValueAtTime(600,t);osc.frequency.setValueAtTime(900,t+0.05);
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.15,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.1);
+  osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.12);
+}
+
+// --- MUSIC ---
+var _bgmNodes=null;
+var _bgmPlaying='';
+
+function startBgm(type){
+  if(!audioCtx)return;
+  if(_bgmPlaying===type)return;
+  stopBgm();
+  _bgmPlaying=type;
+
+  if(type==='prep'){
+    // Calm ambient pad: two low oscillators with slow LFO
+    var master=audioCtx.createGain();master.gain.value=0.06;master.connect(audioCtx.destination);
+    var osc1=audioCtx.createOscillator();osc1.type='sine';osc1.frequency.value=110;
+    var osc2=audioCtx.createOscillator();osc2.type='sine';osc2.frequency.value=165;
+    var osc3=audioCtx.createOscillator();osc3.type='sine';osc3.frequency.value=220;
+    // Slow tremolo
+    var lfo=audioCtx.createOscillator();lfo.frequency.value=0.3;
+    var lfoG=audioCtx.createGain();lfoG.gain.value=0.03;
+    lfo.connect(lfoG);lfoG.connect(master.gain);
+    // Reverb-like filter
+    var flt=audioCtx.createBiquadFilter();flt.type='lowpass';flt.frequency.value=400;flt.Q.value=1;
+    osc1.connect(flt);osc2.connect(flt);osc3.connect(flt);flt.connect(master);
+    osc1.start();osc2.start();osc3.start();lfo.start();
+    _bgmNodes={master:master,oscs:[osc1,osc2,osc3,lfo]};
+
+  }else if(type==='battle'){
+    // Tense rhythmic pulse: bass kick + hi-hat pattern
+    var master=audioCtx.createGain();master.gain.value=0.08;master.connect(audioCtx.destination);
+    // Bass drone
+    var bass=audioCtx.createOscillator();bass.type='sawtooth';bass.frequency.value=55;
+    var bassF=audioCtx.createBiquadFilter();bassF.type='lowpass';bassF.frequency.value=120;
+    bass.connect(bassF);bassF.connect(master);bass.start();
+    // Rhythmic pulse via gain LFO
+    var pulseLfo=audioCtx.createOscillator();pulseLfo.frequency.value=1.8; // ~108 BPM feel
+    var pulseG=audioCtx.createGain();pulseG.gain.value=0.04;
+    pulseLfo.connect(pulseG);pulseG.connect(master.gain);pulseLfo.start();
+    // Tension chord
+    var osc2=audioCtx.createOscillator();osc2.type='triangle';osc2.frequency.value=82.4;
+    var osc3=audioCtx.createOscillator();osc3.type='triangle';osc3.frequency.value=123.5;
+    var chordG=audioCtx.createGain();chordG.gain.value=0.5;
+    osc2.connect(chordG);osc3.connect(chordG);chordG.connect(master);
+    osc2.start();osc3.start();
+    _bgmNodes={master:master,oscs:[bass,pulseLfo,osc2,osc3]};
+  }
+}
+
+function stopBgm(){
+  if(_bgmNodes){
+    try{
+      _bgmNodes.master.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);
+      setTimeout(function(){
+        if(_bgmNodes){
+          for(var i=0;i<_bgmNodes.oscs.length;i++){try{_bgmNodes.oscs[i].stop()}catch(e){}}
+          try{_bgmNodes.master.disconnect()}catch(e){}
+          _bgmNodes=null;
+        }
+      },400);
+    }catch(e){_bgmNodes=null;}
+  }
+  _bgmPlaying='';
+}
+
 // ===================== DEBUG LOG SYSTEM =====================
 const DLOG = [];
 const DLOG_MAX = 200;
@@ -1138,6 +1288,7 @@ function spawnNextWave(){
 function startWalking(){
   G.sub='walk';
   G.walkSpeed=80;
+  startBgm('battle');
   G._walkTimer=0;
   G._approachActive=false;
   G.enemies=[];G.projectiles=[];G.effects=[];
@@ -1406,6 +1557,7 @@ function fireEnemyProj(e){
 
 function onEnemyDeath(e){
   if(e._deathHandled)return;e._deathHandled=true;G.kills++;
+  sfxDeath();
   dlog('enemyDeath id='+e.id+' type='+e.type+' remaining='+(G.enemies.filter(function(x){return x.hp>0}).length-1));
   gainExp(e.type==='boss'?80:e.type==='elite'?30:10);
   var ep=enemyScreenPos(e);
@@ -1650,6 +1802,7 @@ function openBpOverlay(){
   document.getElementById('lobby').classList.add('active');
   document.getElementById('lobby-backdrop').classList.add('active');
   document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
+  startBgm('prep');
   // Show loot + buttons, hide slot machine
   if(G._lootItems&&G._lootItems.length>0){
     showLootDrop();
@@ -2187,6 +2340,7 @@ function selectTurnCard(idx){
   if(G._turnLocked||G._turnPhase!=='player_choose')return;
   G._turnLocked=true;
   G._turnPhase='player_attack';
+  sfxCardSelect();
 
   var card=G._turnCards[idx];
   document.getElementById('turn-cards').classList.remove('active');
@@ -2207,10 +2361,12 @@ function selectTurnCard(idx){
     G.totalDamage+=dmg;
     addFloat(target,dmg,isCrit?'#F1C40F':'#fff',isCrit);
     flashAbility(tierColor(card.weapon.tier||1));
+    if(isCrit)sfxCrit();else sfxHit();
     showBigLabel(isCrit?'CRIT!':'HIT!',isCrit?'#F1C40F':'#2ECC71',dmg+' DMG');
     var v=synVamp();if(v>0)G.hero.hp=Math.min(G.hero.hp+Math.floor(dmg*v),G.hero.maxHp);
     if(target.hp<=0)onEnemyDeath(target);
   }else{
+    sfxMiss();
     showBigLabel('MISS!','#E74C3C','');
     G.effects.push({x:CW/2,y:CH*0.5,radius:40,color:'rgba(255,50,50,.4)',life:0.6});
   }
@@ -2238,9 +2394,11 @@ function enemyTurnAttack(){
   setTimeout(function(){
     if(hit){
       attacker._hitFlash=0.15;
+      sfxHeroDamage();
       heroDamage(dmg);
       showBigLabel('-'+dmg,'#E74C3C',part.name);
     }else{
+      sfxMiss();
       showBigLabel('MISS!','#2ECC71','Enemy промахнулся');
     }
     setTimeout(function(){endTurn()},800);
@@ -2362,7 +2520,7 @@ function gameLoop(ts){
 }
 
 function startGame(){
-  // Scroll to hide address bar on mobile
+  initAudio();
   window.scrollTo(0,1);setTimeout(function(){window.scrollTo(0,0)},100);
   loadAssets(function(){
     resetState();resizeCanvas();G.running=true;G.lastTime=performance.now();
