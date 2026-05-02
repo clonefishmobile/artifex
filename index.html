@@ -187,9 +187,11 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
 .big-label{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:35;
   pointer-events:none;text-align:center;animation:bigLabelAnim 1.2s ease-out forwards}
 .big-label .bl-main{font-size:48px;font-weight:900;letter-spacing:4px;
-  text-shadow:0 4px 16px rgba(0,0,0,.8),0 0 30px currentColor}
-.big-label .bl-sub{font-size:16px;font-weight:700;opacity:.8;margin-top:4px;
-  text-shadow:0 2px 6px rgba(0,0,0,.7)}
+  -webkit-text-stroke:2px rgba(0,0,0,.7);
+  text-shadow:0 0 8px rgba(0,0,0,.9),0 4px 16px rgba(0,0,0,.8),0 0 30px currentColor}
+.big-label .bl-sub{font-size:16px;font-weight:700;opacity:.9;margin-top:4px;
+  -webkit-text-stroke:1px rgba(0,0,0,.6);
+  text-shadow:0 0 6px rgba(0,0,0,.9),0 2px 6px rgba(0,0,0,.7)}
 @keyframes bigLabelAnim{
   0%{opacity:0;transform:translate(-50%,-50%) scale(0.3)}
   15%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
@@ -202,7 +204,8 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
 
 /* FLOATS & NOTIFICATIONS */
 .float-text{position:absolute;pointer-events:none;font-weight:900;z-index:30;
-  text-shadow:0 2px 4px rgba(0,0,0,.8),0 0 8px rgba(0,0,0,.5);
+  -webkit-text-stroke:1.5px rgba(0,0,0,.6);
+  text-shadow:0 0 6px rgba(0,0,0,.9),0 2px 4px rgba(0,0,0,.8),0 0 12px rgba(0,0,0,.5);
   animation:floatBounce 1s ease-out forwards}
 @keyframes floatBounce{
   0%{opacity:1;transform:translateY(0) scale(.6)}
