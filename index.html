@@ -1151,14 +1151,11 @@ function onWaveCleared(){
   for(var li=0;li<3;li++)G._lootItems.push(randomWeapon());
   showLootDrop();
 
-  if(G._roomWave>=G._roomWaveTotal){
-    G.sub='loot';
-    document.getElementById('combat-ui').classList.remove('active');
-    dlog('all waves done, entering loot sub');
-  }else{
-    G.sub='loot';
-    dlog('wave loot shown, waiting for placement');
-  }
+  // Always go to backpack after wave — player presses BATTLE to continue
+  G.sub='backpack';
+  document.getElementById('combat-ui').classList.remove('active');
+  dlog('wave cleared, opening backpack with loot');
+  openBpOverlay();
 }
 
 function showLootDrop(){
@@ -1199,15 +1196,11 @@ function onLootItemPlaced(weapon){
   var qi=G.queue.indexOf(weapon);
   if(qi>=0)G.queue.splice(qi,1);
   rerenderLootCards();
-  // If all placed, auto-proceed
+  // If all placed, always go to backpack — player must press BATTLE to start combat
   if(G._lootItems.length===0){
     hideLootDrop();
-    if(G._roomWave>=G._roomWaveTotal){
-      G.sub='backpack';
-      openBpOverlay();
-    }else{
-      startWalking();
-    }
+    G.sub='backpack';
+    openBpOverlay();
   }
 }
 
@@ -1236,12 +1229,7 @@ function updateCombat(dt){
     updateWalking(dt);
     return;
   }
-  if(G.sub==='loot'){
-    updateLoot(dt);
-    return;
-  }
-  if(G.sub==='backpack'){
-    // Frozen — no combat updates
+  if(G.sub==='backpack'||G.sub==='loot'){
     return;
   }
 
