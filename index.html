@@ -745,6 +745,42 @@ function sfxCardSelect(){
   osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.12);
 }
 
+function sfxSlotTick(pitch){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Soft click — short sine blip, pitch rises as slot slows
+  var freq=400+(pitch||0)*80;
+  var osc=audioCtx.createOscillator();osc.type='sine';
+  osc.frequency.setValueAtTime(freq,t);osc.frequency.setValueAtTime(freq*0.8,t+0.03);
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.08,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.04);
+  osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.05);
+}
+
+function sfxSlotResolve(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Satisfying ding — ascending two-tone chime
+  var osc1=audioCtx.createOscillator();osc1.type='sine';osc1.frequency.value=880;
+  var g1=audioCtx.createGain();g1.gain.setValueAtTime(0.2,t);g1.gain.exponentialRampToValueAtTime(0.01,t+0.3);
+  osc1.connect(g1);g1.connect(audioCtx.destination);osc1.start(t);osc1.stop(t+0.3);
+  var osc2=audioCtx.createOscillator();osc2.type='sine';osc2.frequency.value=1320;
+  var g2=audioCtx.createGain();g2.gain.setValueAtTime(0,t);g2.gain.setValueAtTime(0.18,t+0.08);
+  g2.gain.exponentialRampToValueAtTime(0.01,t+0.4);
+  osc2.connect(g2);g2.connect(audioCtx.destination);osc2.start(t+0.08);osc2.stop(t+0.4);
+  // Shimmer overtone
+  var osc3=audioCtx.createOscillator();osc3.type='sine';osc3.frequency.value=1760;
+  var g3=audioCtx.createGain();g3.gain.setValueAtTime(0,t);g3.gain.setValueAtTime(0.08,t+0.12);
+  g3.gain.exponentialRampToValueAtTime(0.01,t+0.5);
+  osc3.connect(g3);g3.connect(audioCtx.destination);osc3.start(t+0.12);osc3.stop(t+0.5);
+}
+
+function sfxSlotFail(){
+  if(!audioCtx)return;var t=audioCtx.currentTime;
+  // Dull descending tone
+  var osc=audioCtx.createOscillator();osc.type='triangle';
+  osc.frequency.setValueAtTime(300,t);osc.frequency.exponentialRampToValueAtTime(150,t+0.25);
+  var g=audioCtx.createGain();g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.3);
+  osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.3);
+}
+
 // --- MUSIC (MP3) ---
 var _bgmAudio={prep:null,battle:null};
 var _bgmPlaying='';
@@ -1844,6 +1880,12 @@ function updateGridSlotScan(dt){
   var cellIdx=Math.floor(scan.pos)%cells.length;
   var cell=cells[cellIdx];
 
+  // Tick sound when moving to a new cell
+  if(!scan._lastCell||scan._lastCell!==cellIdx){
+    scan._lastCell=cellIdx;
+    sfxSlotTick(scan.slowing?3:0);
+  }
+
   // Highlight current cell on grid
   clearGridHighlights();
   var cellEl=document.querySelector('.grid-cell[data-col="'+cell.col+'"][data-row="'+cell.row+'"]');
@@ -1869,12 +1911,14 @@ function updateGridSlotScan(dt){
       scan.results[reelIdx]=fw;
       G.activeSlots[reelIdx]=fw;
       reelEl.classList.add('resolved');
+      sfxSlotResolve();
       reelEl.innerHTML='<div class="slot-reel-item"><span class="sri-icon" style="font-size:32px">'+fw.icon+'</span><span class="sri-name" style="color:'+tierColor(fw.tier)+';font-weight:700">'+fw.name+' T'+fw.tier+'</span></div>';
       // Highlight weapon cells on grid gold
       highlightWeaponOnGrid(finalUid);
     }else{
       scan.results[reelIdx]=null;
       reelEl.classList.add('resolved');
+      sfxSlotFail();
       reelEl.innerHTML='<div class="slot-reel-item"><span class="sri-icon" style="font-size:32px;color:#E74C3C">✕</span><span class="sri-name" style="color:#E74C3C">no weapon</span></div>';
     }
     // Move to next reel
