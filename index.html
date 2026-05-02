@@ -1806,7 +1806,7 @@ function renderQueue(){
     el.className='queue-item';
     var tc=tierColor(w.tier);
     el.style.borderColor=tc;
-    el.style.background=tierColorRgba(w.tier,0.15);
+    el.style.background=tierColorRgba(w.tier,0.3);
     var shape=getShape(w),bounds=shapeBounds(shape);
     var shapeHtml='<div class="qi-shape" style="grid-template-columns:repeat('+bounds.w+',4px)">';
     for(var r=0;r<bounds.h;r++)for(var cc=0;cc<bounds.w;cc++){
@@ -1836,8 +1836,8 @@ function renderGrid(){
       var w=G.placed.get(uid);
       // Tier-based colors (Change 4) — inline style
       var tc=tierColor(w.tier);
-      cell.style.background=tierColorRgba(w.tier,0.18);
-      cell.style.borderColor=tierColorRgba(w.tier,0.4);
+      cell.style.background=tierColorRgba(w.tier,0.35);
+      cell.style.borderColor=tierColorRgba(w.tier,0.7);
       var isActive=G.activeSlots.some(function(s){return s&&s.uid===uid});
       if(isActive)cell.classList.add('occupied-active');
       // Merge borders with same weapon neighbors
@@ -2020,7 +2020,7 @@ function createDragGhost(){
     var has=shape.some(function(p){return p[0]===c&&p[1]===r});
     var gc=document.createElement('div');gc.className='ghost-cell';
     if(has){
-      gc.style.background=tierColorRgba(w.tier,0.5);
+      gc.style.background=tierColorRgba(w.tier,0.6);
       gc.style.border='2px solid '+tc;
       if(c===center[0]&&r===center[1]){gc.classList.add('ghost-center');gc.textContent=w.icon}}
     else{gc.style.background='transparent';gc.style.border='none'}
@@ -2153,7 +2153,7 @@ function showCarryOver(){
     el.className='carry-card';
     // Tier-based carry card colors (Change 4)
     el.style.borderColor=tierColor(w.tier);
-    el.style.background=tierColorRgba(w.tier,0.2);
+    el.style.background=tierColorRgba(w.tier,0.35);
     el.innerHTML=w.icon+'<span class="cc-tier">T'+w.tier+'</span>';
     (function(cardUid,cardEl){
       el.addEventListener('click',function(){
