@@ -1203,8 +1203,8 @@ function onLootItemPlaced(weapon){
 function resummonLoot(){
   G._lootItems=[];
   for(var li=0;li<3;li++)G._lootItems.push(randomWeapon());
-  rerenderLootCards();
   G.queue=G._lootItems.slice();
+  showLootDrop();
   showNotif('⟳ NEW LOOT!','#9B59B6');
 }
 
