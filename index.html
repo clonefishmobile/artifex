@@ -745,65 +745,31 @@ function sfxCardSelect(){
   osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+0.12);
 }
 
-// --- MUSIC ---
-var _bgmNodes=null;
+// --- MUSIC (MP3) ---
+var _bgmAudio={prep:null,battle:null};
 var _bgmPlaying='';
 
+function preloadBgm(){
+  _bgmAudio.prep=new Audio('audio/bgm_prep.mp3');
+  _bgmAudio.prep.loop=true;_bgmAudio.prep.volume=0.4;
+  _bgmAudio.battle=new Audio('audio/bgm_battle.mp3');
+  _bgmAudio.battle.loop=true;_bgmAudio.battle.volume=0.5;
+}
+
 function startBgm(type){
-  if(!audioCtx)return;
   if(_bgmPlaying===type)return;
   stopBgm();
   _bgmPlaying=type;
-
-  if(type==='prep'){
-    // Calm ambient pad: two low oscillators with slow LFO
-    var master=audioCtx.createGain();master.gain.value=0.06;master.connect(audioCtx.destination);
-    var osc1=audioCtx.createOscillator();osc1.type='sine';osc1.frequency.value=110;
-    var osc2=audioCtx.createOscillator();osc2.type='sine';osc2.frequency.value=165;
-    var osc3=audioCtx.createOscillator();osc3.type='sine';osc3.frequency.value=220;
-    // Slow tremolo
-    var lfo=audioCtx.createOscillator();lfo.frequency.value=0.3;
-    var lfoG=audioCtx.createGain();lfoG.gain.value=0.03;
-    lfo.connect(lfoG);lfoG.connect(master.gain);
-    // Reverb-like filter
-    var flt=audioCtx.createBiquadFilter();flt.type='lowpass';flt.frequency.value=400;flt.Q.value=1;
-    osc1.connect(flt);osc2.connect(flt);osc3.connect(flt);flt.connect(master);
-    osc1.start();osc2.start();osc3.start();lfo.start();
-    _bgmNodes={master:master,oscs:[osc1,osc2,osc3,lfo]};
-
-  }else if(type==='battle'){
-    // Tense rhythmic pulse: bass kick + hi-hat pattern
-    var master=audioCtx.createGain();master.gain.value=0.08;master.connect(audioCtx.destination);
-    // Bass drone
-    var bass=audioCtx.createOscillator();bass.type='sawtooth';bass.frequency.value=55;
-    var bassF=audioCtx.createBiquadFilter();bassF.type='lowpass';bassF.frequency.value=120;
-    bass.connect(bassF);bassF.connect(master);bass.start();
-    // Rhythmic pulse via gain LFO
-    var pulseLfo=audioCtx.createOscillator();pulseLfo.frequency.value=1.8; // ~108 BPM feel
-    var pulseG=audioCtx.createGain();pulseG.gain.value=0.04;
-    pulseLfo.connect(pulseG);pulseG.connect(master.gain);pulseLfo.start();
-    // Tension chord
-    var osc2=audioCtx.createOscillator();osc2.type='triangle';osc2.frequency.value=82.4;
-    var osc3=audioCtx.createOscillator();osc3.type='triangle';osc3.frequency.value=123.5;
-    var chordG=audioCtx.createGain();chordG.gain.value=0.5;
-    osc2.connect(chordG);osc3.connect(chordG);chordG.connect(master);
-    osc2.start();osc3.start();
-    _bgmNodes={master:master,oscs:[bass,pulseLfo,osc2,osc3]};
-  }
+  var a=_bgmAudio[type];
+  if(!a)return;
+  a.currentTime=0;
+  a.play().catch(function(){});
 }
 
 function stopBgm(){
-  if(_bgmNodes){
-    try{
-      _bgmNodes.master.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);
-      setTimeout(function(){
-        if(_bgmNodes){
-          for(var i=0;i<_bgmNodes.oscs.length;i++){try{_bgmNodes.oscs[i].stop()}catch(e){}}
-          try{_bgmNodes.master.disconnect()}catch(e){}
-          _bgmNodes=null;
-        }
-      },400);
-    }catch(e){_bgmNodes=null;}
+  if(_bgmPlaying&&_bgmAudio[_bgmPlaying]){
+    var a=_bgmAudio[_bgmPlaying];
+    a.pause();a.currentTime=0;
   }
   _bgmPlaying='';
 }
@@ -2520,7 +2486,7 @@ function gameLoop(ts){
 }
 
 function startGame(){
-  initAudio();
+  initAudio();preloadBgm();
   window.scrollTo(0,1);setTimeout(function(){window.scrollTo(0,0)},100);
   loadAssets(function(){
     resetState();resizeCanvas();G.running=true;G.lastTime=performance.now();
