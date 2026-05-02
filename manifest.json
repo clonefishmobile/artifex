@@ -1,0 +1,10 @@
+{
+  "name": "ARTIFEX",
+  "short_name": "ARTIFEX",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": []
+}

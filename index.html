@@ -2,7 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="manifest.json">
 <title>ARTIFEX — Backpack Roguelike</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -14,8 +19,10 @@
   --bg:#1a1a2e;--text:#e0e0e0;--text-dim:#888;
   --cell-bg:#22223a;--cell-border:#3a3a50;
 }
-html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
-  font-family:'Segoe UI',monospace;overflow:hidden;touch-action:none;user-select:none}
+html,body{width:100%;height:100dvh;background:var(--bg);color:var(--text);
+  font-family:'Segoe UI',monospace;overflow:hidden;touch-action:none;user-select:none;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+@supports not (height:100dvh){html,body{height:100vh}}
 #game{width:100%;height:100%;max-width:430px;margin:0 auto;position:relative;overflow:hidden}
 
 /* TITLE */
@@ -52,10 +59,11 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 #combat-canvas{position:absolute;inset:0;width:100%;height:100%}
 
 /* LOBBY — now a slide-up overlay */
-#lobby{position:absolute;left:0;right:0;bottom:0;height:65%;display:none;flex-direction:column;
+#lobby{position:absolute;left:0;right:0;bottom:0;max-height:70%;display:none;flex-direction:column;
   background:linear-gradient(180deg,rgba(13,27,42,.97),rgba(27,40,56,.98) 40%,rgba(15,52,96,.98));
   z-index:20;border-top-left-radius:18px;border-top-right-radius:18px;
-  box-shadow:0 -4px 30px rgba(0,0,0,.6)}
+  box-shadow:0 -4px 30px rgba(0,0,0,.6);
+  padding-bottom:env(safe-area-inset-bottom);overflow-y:auto}
 #lobby.active{display:flex}
 /* Backdrop behind overlay */
 #lobby-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:19;display:none}
@@ -81,7 +89,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 #grid-wrapper{position:relative;padding:6px;background:rgba(0,0,0,.3);border-radius:10px;
   border:1px solid rgba(255,255,255,.08)}
 #grid-container{display:grid;gap:2px}
-.grid-cell{width:50px;height:50px;background:var(--cell-bg);border:1.5px solid var(--cell-border);
+.grid-cell{width:min(50px,16vw);height:min(50px,16vw);background:var(--cell-bg);border:1.5px solid var(--cell-border);
   border-radius:4px;position:relative;transition:background .15s,border-color .15s}
 .grid-cell.occupied-active{box-shadow:inset 0 0 8px rgba(241,196,15,.3),0 0 6px rgba(241,196,15,.25)}
 .grid-cell.merge-right{border-right-color:transparent!important;border-top-right-radius:0;border-bottom-right-radius:0}
@@ -140,7 +148,8 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 /* COMBAT UI */
 #combat-ui{position:absolute;bottom:0;left:0;right:0;z-index:10;display:none}
 #combat-ui.active{display:block}
-#combat-slots{display:flex;justify-content:center;gap:10px;padding:6px 14px 22px;
+#combat-slots{display:flex;justify-content:center;gap:10px;
+  padding:6px 14px calc(16px + env(safe-area-inset-bottom));
   background:linear-gradient(0deg,rgba(0,0,0,.7),transparent)}
 .combat-slot{width:76px;height:76px;border-radius:50%;border:3px solid #555;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:28px;
@@ -692,8 +701,14 @@ function getEnemyImg(e){
 const canvas=document.getElementById('combat-canvas');
 const ctx=canvas.getContext('2d');
 var CW,CH;
-function resizeCanvas(){var g=document.getElementById('game');CW=canvas.width=g.clientWidth;CH=canvas.height=g.clientHeight}
+function resizeCanvas(){
+  var g=document.getElementById('game');
+  CW=canvas.width=g.clientWidth;
+  CH=canvas.height=g.clientHeight;
+}
 window.addEventListener('resize',resizeCanvas);
+window.addEventListener('orientationchange',function(){setTimeout(resizeCanvas,200)});
+window.visualViewport&&window.visualViewport.addEventListener('resize',resizeCanvas);
 
 function drawCombat(dt){
   ctx.clearRect(0,0,CW,CH);
@@ -1823,7 +1838,8 @@ function renderQueue(){
 
 function renderGrid(){
   var grid=document.getElementById('grid-container');
-  grid.style.gridTemplateColumns='repeat('+GCOLS+','+CSZ+'px)';
+  var cellSz=Math.min(CSZ,Math.floor((document.getElementById('game').clientWidth-40)/GCOLS));
+  grid.style.gridTemplateColumns='repeat('+GCOLS+','+cellSz+'px)';
   grid.innerHTML='';
   for(var r=0;r<GROWS;r++)for(var c=0;c<GCOLS;c++){
     var idx=r*GCOLS+c;var cell=document.createElement('div');
@@ -2211,6 +2227,10 @@ function gameLoop(ts){
 }
 
 function startGame(){
+  // Request fullscreen on mobile
+  var el=document.documentElement;
+  if(el.requestFullscreen)el.requestFullscreen().catch(function(){});
+  else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
   loadAssets(function(){
     resetState();resizeCanvas();G.running=true;G.lastTime=performance.now();
     document.getElementById('title-screen').style.display='none';
