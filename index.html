@@ -156,6 +156,33 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
   text-shadow:0 1px 3px rgba(0,0,0,.9);pointer-events:none}
 .combat-slot.ready-pulse{animation:readyPulse 1s infinite}
 @keyframes readyPulse{0%,100%{box-shadow:0 0 8px rgba(46,204,113,.3)}50%{box-shadow:0 0 20px rgba(46,204,113,.7)}}
+/* ATTACK CARDS */
+#turn-cards{display:none;position:absolute;bottom:0;left:0;right:0;z-index:12;
+  padding:8px 10px 12px;background:linear-gradient(0deg,rgba(0,0,0,.85) 60%,transparent);
+  flex-direction:row;justify-content:center;gap:10px}
+#turn-cards.active{display:flex}
+.attack-card{width:48%;max-width:180px;background:rgba(20,20,30,.9);border:2px solid #555;
+  border-radius:12px;padding:6px;cursor:pointer;transition:transform .15s,border-color .15s;
+  display:flex;flex-direction:column;align-items:center;gap:4px}
+.attack-card:active{transform:scale(.93)}
+.attack-card .card-header{width:100%;text-align:center;font-size:11px;font-weight:700;
+  color:#fff;background:rgba(231,76,60,.3);border-radius:6px;padding:3px 0;letter-spacing:1px}
+.card-body{display:flex;align-items:center;gap:6px;width:100%}
+.card-figure{flex-shrink:0}
+.card-info{display:flex;flex-direction:column;gap:2px;flex:1}
+.card-weapon-name{font-size:10px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px}
+.card-weapon-icon{font-size:18px}
+.card-chance{font-size:20px;font-weight:900;text-align:center;padding:2px 0}
+.card-chance.high{color:#2ECC71}
+.card-chance.med{color:#F1C40F}
+.card-chance.low{color:#E74C3C}
+.card-dmg{font-size:9px;color:rgba(255,255,255,.5);text-align:center}
+/* Turn indicator */
+#turn-indicator{position:absolute;top:76px;left:50%;transform:translateX(-50%);z-index:12;
+  font-size:13px;font-weight:700;padding:4px 16px;border-radius:8px;pointer-events:none;display:none}
+#turn-indicator.active{display:block}
+#turn-indicator.player-turn{background:rgba(46,204,113,.2);color:#2ECC71;border:1px solid rgba(46,204,113,.4)}
+#turn-indicator.enemy-turn{background:rgba(231,76,60,.2);color:#E74C3C;border:1px solid rgba(231,76,60,.4)}
 #dodge-hint{display:none}
 
 /* FLOATS & NOTIFICATIONS */
@@ -334,7 +361,7 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
       Перетаскивай оружие в сетку 5×7<br>
       R / кнопка — повернуть при перетаскивании<br>
       Тап по оружию в сетке — в активный слот<br>
-      Автобой: стреляет и использует способности сам
+      Пошаговый бой: выбирай карту атаки каждый ход
     </div>
   </div>
   <div id="hud" style="display:none">
@@ -375,10 +402,8 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
     <div id="combo-count">x1</div>
     <div id="combo-label">COMBO</div>
   </div>
-  <div id="combat-ui">
-    <div id="dodge-hint">← A/D свайп уклонение · Автобой →</div>
-    <div id="combat-slots"></div>
-  </div>
+  <div id="turn-indicator"></div>
+  <div id="turn-cards"></div>
   <div id="transition-overlay">
     <div class="room-title" id="trans-title"></div>
     <div class="room-desc" id="trans-desc"></div>
@@ -407,6 +432,15 @@ const SCHOOL_GLOWS={red:'#FF6B6B',blue:'#74B9FF',green:'#55EFC4'};
 // Tier-based visual colors (Change 4)
 const TIER_COLORS={1:'#27AE60',2:'#3498DB',3:'#9B59B6',4:'#F39C12',5:'#E74C3C'};
 const TIER_NAMES={1:'Common',2:'Rare',3:'Epic',4:'Legendary',5:'Mythic'};
+
+var BODY_PARTS = [
+  {id:'head',name:'Голова',chance:0.45,dmgMul:2.0,x:0.5,y:0.12,w:0.22,h:0.15},
+  {id:'torso',name:'Туловище',chance:0.75,dmgMul:1.0,x:0.5,y:0.38,w:0.3,h:0.25},
+  {id:'left_arm',name:'Левая рука',chance:0.55,dmgMul:1.2,x:0.2,y:0.35,w:0.15,h:0.25},
+  {id:'right_arm',name:'Правая рука',chance:0.55,dmgMul:1.2,x:0.8,y:0.35,w:0.15,h:0.25},
+  {id:'left_leg',name:'Левая нога',chance:0.60,dmgMul:1.0,x:0.35,y:0.7,w:0.14,h:0.28},
+  {id:'right_leg',name:'Правая нога',chance:0.60,dmgMul:1.0,x:0.65,y:0.7,w:0.14,h:0.28},
+];
 
 function tierColor(t){return TIER_COLORS[t]||'#888'}
 function tierColorRgba(t,a){
@@ -500,6 +534,9 @@ function resetState(){
     _approachTimer:0,
     _approachActive:false,
     _lootTimer:0,
+    _turnPhase: 'idle',
+    _turnCards: [],
+    _turnLocked: false,
   };
 }
 
@@ -1087,7 +1124,7 @@ function startWalking(){
   G._approachActive=false;
   G.enemies=[];G.projectiles=[];G.effects=[];
   hideLootDrop();
-  document.getElementById('combat-ui').classList.remove('active');
+  document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
   dlog('startWalking room='+G.room+' roomWave='+G._roomWave);
   updateWaveCounter();
 }
@@ -1127,8 +1164,7 @@ function updateWalking(dt){
       for(var fi=0;fi<G.enemies.length;fi++){
         G.enemies[fi]._approachScale=1;
       }
-      document.getElementById('combat-ui').classList.add('active');
-      updateCombatSlots();
+      showTurnCards();
       dlog('enemies arrived, fight begins, roomWave='+G._roomWave);
     }
   }
@@ -1149,7 +1185,7 @@ function onWaveCleared(){
 
   // Always go to backpack after wave — player presses BATTLE to continue
   G.sub='backpack';
-  document.getElementById('combat-ui').classList.remove('active');
+  document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
   dlog('wave cleared, opening backpack with loot');
   openBpOverlay();
 }
@@ -1241,8 +1277,6 @@ function updateCombat(dt){
   if(G.fireWall){G.fireWall.timer-=dt;if(G.fireWall.timer<=0)G.fireWall=null}
   for(var di=G.drones.length-1;di>=0;di--){G.drones[di].timer-=dt;if(G.drones[di].timer<=0)G.drones.splice(di,1)}
   for(var _eid of G.rootedEnemies){var _e=G.enemies.find(function(en){return en.id===_eid});if(!_e||_e.hp<=0)G.rootedEnemies.delete(_eid)}
-  for(var ci=0;ci<3;ci++)if(G.activeCooldowns[ci]>0)G.activeCooldowns[ci]-=dt;
-
   // Fade in enemies with staggered spawn
   for(var sei=0;sei<G.enemies.length;sei++){
     var se=G.enemies[sei];
@@ -1262,46 +1296,19 @@ function updateCombat(dt){
   for(var eei=0;eei<G.enemies.length;eei++){
     var e=G.enemies[eei];
     if(e.hp<=0||e.opacity<1)continue;
-    if(frozen&&e.type!=='boss')continue;
-    e.attackCd-=dt;
-    var atkSpeed=e.type==='boss'?(e.phase>=3?1.2:1.8):e.type==='elite'?2.2:e.type==='ranged'?2.5:1.8;
-    if(e.attackCd<=0){
-      if(e.type==='ranged'){fireEnemyProj(e)}
-      else{enemyAttack(e)}
-      e.attackCd=atkSpeed+Math.random()*.4;
-    }
-    if((e.type==='boss'||e.type==='elite')&&!frozen){
-      e.aoeTimer-=dt;if(e.aoeTimer<=0){
-        setTimeout((function(en){return function(){if(en.hp>0)bossAoe(en)}})(e),1500);
-        e.aoeTimer=e.type==='boss'?(e.phase>=3?4:6):8}}
+    // Boss phase transitions only
     if(e.type==='boss'){var p=e.hp/e.maxHp;
       if(p<=.25)e.phase=4;
       else if(p<=.5&&e.phase<3){e.phase=3;
         for(var mi=0;mi<2;mi++){var m=spawnEnemy('melee',mi,0);m.opacity=1;m.spawnTime=0;m._approachScale=1;G.enemies.push(m)}
         showNotif('Ice Warden призывает подмогу!','#74B9FF')}
       else if(p<=.75)e.phase=2}
+    // Poison ticks (passive, not turn-based)
     if(e.poisonStacks>0){e.poisonTimer-=dt;if(e.poisonTimer<=0){
       var pd=3*e.poisonStacks;e.hp-=pd;addFloat(e,pd,'#27AE60');e.poisonTimer=1;
       if(G.synergies.green>=4)G.hero.hp=Math.min(G.hero.hp+pd*.05,G.hero.maxHp)}}
-    if(G.fireWall&&e.dist<2&&Math.random()<dt*2){
-      var fd=Math.floor(G.hero.damage*G.fireWall.mul*tierEffMul(G.fireWall.tier));
-      e.hp-=fd;addFloat(e,fd,'#FF9500')}
     if(e.hp<=0)onEnemyDeath(e);
   }
-
-  // Drone attacks
-  if(G.drones.length>0&&!frozen)for(var dri=0;dri<G.drones.length;dri++){
-    var d=G.drones[dri];
-    d.atkTimer=(d.atkTimer||0)-dt;if(d.atkTimer<=0){
-      var t=G.enemies.find(function(en){return en.hp>0&&en.opacity>=1});if(t){
-        var dd=Math.floor(G.hero.damage*.5*d.mul);t.hp-=dd;addFloat(t,dd,'#27AE60');
-        if(t.hp<=0)onEnemyDeath(t)}d.atkTimer=1}}
-
-  // Hero auto-attack
-  G.heroAtkTimer-=dt;
-  if(G.heroAtkTimer<=0&&!frozen){
-    var tgt=getAtkTarget();if(tgt&&tgt.opacity>=1){
-      heroMeleeAttack(tgt);G.heroAtkTimer=1.2}}
 
   // Projectile movement & collision
   for(var pi=G.projectiles.length-1;pi>=0;pi--){
@@ -1650,7 +1657,7 @@ function openBpOverlay(){
   recalcSynergies();renderLobby();
   document.getElementById('lobby').classList.add('active');
   document.getElementById('lobby-backdrop').classList.add('active');
-  document.getElementById('combat-ui').classList.remove('active');
+  document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
   // Show loot + buttons, hide slot machine
   if(G._lootItems&&G._lootItems.length>0){
     showLootDrop();
@@ -2074,45 +2081,196 @@ document.addEventListener('keydown',function(e){
 });
 
 // ===================== COMBAT UI =====================
-function updateCombatSlots(){
-  var c=document.getElementById('combat-slots');c.innerHTML='';
-  for(var i=0;i<3;i++){
-    var w=G.activeSlots[i];var s=document.createElement('div');s.className='combat-slot';
-    if(w){
-      var tc=tierColor(w.tier);
-      var totalCd=w.baseCd*tierCdMul(w.tier);
-      var remaining=G.activeCooldowns[i];
-      var onCd=remaining>0;
-      var pct=onCd?remaining/totalCd:0;
-      // Angle for conic sweep: 0% = fully charged, 100% = fully dark
-      var deg=Math.round(360*(1-pct));
+function updateCombatSlots(){}
 
-      s.style.borderColor=onCd?'#555':tc;
-      s.style.background=tierColorRgba(w.tier,onCd?0.15:0.35);
-      s.innerHTML='<span style="font-size:26px;z-index:1;position:relative">'+w.icon+'</span>';
+// ===================== TURN-BASED CARD SYSTEM =====================
+function generateTurnCards(){
+  var cards=[];
+  var usedParts={};
+  var weapons=G.activeSlots.filter(Boolean);
+  if(weapons.length===0) weapons=[{icon:'👊',name:'Fist',tier:1,baseDmgMul:1,defId:'fist'}];
 
-      if(onCd){
-        // Circular sweep overlay: dark portion shrinks as CD completes
-        var sweep=document.createElement('div');sweep.className='cd-sweep';
-        sweep.style.background='conic-gradient(transparent '+deg+'deg, rgba(0,0,0,.7) '+deg+'deg)';
-        s.appendChild(sweep);
-        // Timer text
-        var txt=document.createElement('div');txt.className='cd-text';
-        txt.textContent=Math.ceil(remaining)+'s';
-        s.appendChild(txt);
-      }else{
-        // READY state: pulsing glow
-        s.classList.add('ready-pulse');
-        s.style.borderColor='#2ECC71';
-        s.style.boxShadow='0 0 14px '+tc;
-      }
-      (function(idx){s.addEventListener('click',function(){activateAbility(idx)})})(i);
-    }else{
-      s.style.borderColor='#333';s.style.background='rgba(0,0,0,.3)';
-      s.innerHTML='<span style="color:#444;font-size:10px">—</span>';
-    }
-    c.appendChild(s);
+  for(var i=0;i<2;i++){
+    var available=BODY_PARTS.filter(function(bp){return !usedParts[bp.id]});
+    if(available.length===0) available=BODY_PARTS;
+    var part=available[Math.floor(Math.random()*available.length)];
+    usedParts[part.id]=true;
+    var weapon=weapons[Math.floor(Math.random()*weapons.length)];
+    var baseDmg=G.hero.damage*synDmgBonus()*(weapon.baseDmgMul||1)*tierEffMul(weapon.tier||1);
+    var finalDmg=Math.floor(baseDmg*part.dmgMul);
+    cards.push({part:part,weapon:weapon,damage:finalDmg,chance:part.chance});
   }
+  return cards;
+}
+
+function showTurnCards(){
+  G._turnPhase='player_choose';
+  G._turnLocked=false;
+  var cards=generateTurnCards();
+  G._turnCards=cards;
+
+  var container=document.getElementById('turn-cards');
+  container.innerHTML='';
+  container.classList.add('active');
+
+  var indicator=document.getElementById('turn-indicator');
+  indicator.textContent='YOUR TURN';
+  indicator.className='active player-turn';
+
+  for(var i=0;i<cards.length;i++){
+    var card=cards[i];
+    var el=document.createElement('div');
+    el.className='attack-card';
+
+    var figCanvas=document.createElement('canvas');
+    figCanvas.className='card-figure';
+    figCanvas.width=60;figCanvas.height=90;
+    drawCardFigure(figCanvas,card.part);
+
+    var chanceClass=card.chance>=0.7?'high':card.chance>=0.55?'med':'low';
+    var chancePct=Math.round(card.chance*100);
+    var tc=tierColor(card.weapon.tier||1);
+
+    el.innerHTML='<div class="card-header">ATTACK: '+card.part.name.toUpperCase()+'</div>';
+    var body=document.createElement('div');body.className='card-body';
+    body.appendChild(figCanvas);
+
+    var info=document.createElement('div');info.className='card-info';
+    info.innerHTML='<div class="card-weapon-name"><span class="card-weapon-icon">'+card.weapon.icon+'</span> '+(card.weapon.name||'Fist')+'</div>'
+      +'<div class="card-chance '+chanceClass+'">'+chancePct+'%</div>'
+      +'<div class="card-dmg">DMG: '+card.damage+'</div>';
+    body.appendChild(info);
+    el.appendChild(body);
+
+    (function(idx){el.addEventListener('click',function(){selectTurnCard(idx)})})(i);
+    container.appendChild(el);
+  }
+}
+
+function drawCardFigure(canvas,targetPart){
+  var ctx2=canvas.getContext('2d');
+  var w=canvas.width,h=canvas.height;
+  ctx2.clearRect(0,0,w,h);
+
+  var parts=[
+    {id:'head',x:0.5,y:0.14,w:0.2,h:0.14,type:'circle'},
+    {id:'torso',x:0.5,y:0.38,w:0.28,h:0.22,type:'rect'},
+    {id:'left_arm',x:0.22,y:0.36,w:0.1,h:0.22,type:'rect'},
+    {id:'right_arm',x:0.78,y:0.36,w:0.1,h:0.22,type:'rect'},
+    {id:'left_leg',x:0.38,y:0.68,w:0.11,h:0.28,type:'rect'},
+    {id:'right_leg',x:0.62,y:0.68,w:0.11,h:0.28,type:'rect'},
+  ];
+  ctx2.strokeStyle='#444';ctx2.lineWidth=2;
+  ctx2.beginPath();ctx2.moveTo(w*0.5,h*0.21);ctx2.lineTo(w*0.5,h*0.27);ctx2.stroke();
+  ctx2.beginPath();ctx2.moveTo(w*0.27,h*0.32);ctx2.lineTo(w*0.73,h*0.32);ctx2.stroke();
+  ctx2.beginPath();ctx2.moveTo(w*0.38,h*0.56);ctx2.lineTo(w*0.62,h*0.56);ctx2.stroke();
+
+  for(var i=0;i<parts.length;i++){
+    var bp=parts[i];
+    var isTarget=bp.id===targetPart.id;
+    ctx2.fillStyle=isTarget?'rgba(231,76,60,0.8)':'#333';
+    if(isTarget){
+      ctx2.shadowColor='#E74C3C';ctx2.shadowBlur=8;
+    }else{
+      ctx2.shadowColor='transparent';ctx2.shadowBlur=0;
+    }
+    if(bp.type==='circle'){
+      ctx2.beginPath();
+      ctx2.arc(w*bp.x,h*bp.y,w*bp.w*0.5,0,Math.PI*2);
+      ctx2.fill();
+    }else{
+      var rx=w*(bp.x-bp.w/2),ry=h*(bp.y-bp.h/2),rw=w*bp.w,rh=h*bp.h;
+      ctx2.beginPath();
+      ctx2.moveTo(rx+3,ry);ctx2.lineTo(rx+rw-3,ry);ctx2.quadraticCurveTo(rx+rw,ry,rx+rw,ry+3);
+      ctx2.lineTo(rx+rw,ry+rh-3);ctx2.quadraticCurveTo(rx+rw,ry+rh,rx+rw-3,ry+rh);
+      ctx2.lineTo(rx+3,ry+rh);ctx2.quadraticCurveTo(rx,ry+rh,rx,ry+rh-3);
+      ctx2.lineTo(rx,ry+3);ctx2.quadraticCurveTo(rx,ry,rx+3,ry);
+      ctx2.fill();
+    }
+    ctx2.shadowBlur=0;
+  }
+}
+
+function selectTurnCard(idx){
+  if(G._turnLocked||G._turnPhase!=='player_choose')return;
+  G._turnLocked=true;
+  G._turnPhase='player_attack';
+
+  var card=G._turnCards[idx];
+  document.getElementById('turn-cards').classList.remove('active');
+
+  var target=getAtkTarget();
+  if(!target){G._turnPhase='idle';return;}
+
+  var hit=Math.random()<card.chance;
+
+  if(hit){
+    var dmg=card.damage;
+    var isCrit=card.part.id==='head'&&Math.random()<0.3;
+    if(isCrit)dmg=Math.floor(dmg*1.5);
+    target.hp-=dmg;
+    target._hitFlash=0.3;
+    target._hitShakeX=(Math.random()-0.5)*15;
+    target._hitShakeY=(Math.random()-0.5)*8;
+    G.totalDamage+=dmg;
+    addFloat(target,dmg,isCrit?'#F1C40F':'#fff',isCrit);
+    showNotif((isCrit?'💥 CRIT! ':'✓ HIT! ')+card.part.name+' → '+dmg,isCrit?'#F1C40F':'#2ECC71');
+    flashAbility(tierColor(card.weapon.tier||1));
+    var v=synVamp();if(v>0)G.hero.hp=Math.min(G.hero.hp+Math.floor(dmg*v),G.hero.maxHp);
+    if(G.synergies.green>=2&&target.poisonStacks<5){target.poisonStacks++;target.poisonTimer=1}
+    if(target.hp<=0)onEnemyDeath(target);
+  }else{
+    showNotif('✕ MISS! '+card.part.name,'#E74C3C');
+    G.effects.push({x:CW/2,y:CH*0.5,radius:30,color:'rgba(255,50,50,.3)',life:0.5});
+  }
+
+  updateHUD();
+
+  setTimeout(function(){enemyTurnAttack()},1000);
+}
+
+function enemyTurnAttack(){
+  G._turnPhase='enemy_attack';
+  var indicator=document.getElementById('turn-indicator');
+  indicator.textContent='ENEMY TURN';
+  indicator.className='active enemy-turn';
+
+  var attacker=G.enemies.find(function(e){return e.hp>0&&e.opacity>=1});
+  if(!attacker){
+    endTurn();return;
+  }
+
+  var part=BODY_PARTS[Math.floor(Math.random()*BODY_PARTS.length)];
+  var dmg=attacker.damage;
+  var hit=Math.random()<0.6;
+
+  setTimeout(function(){
+    if(hit){
+      attacker._hitFlash=0.15;
+      heroDamage(dmg);
+      showNotif('⚠ '+part.name+'! -'+dmg,'#E74C3C');
+    }else{
+      showNotif('Enemy missed!','#2ECC71');
+    }
+    setTimeout(function(){endTurn()},800);
+  },600);
+}
+
+function endTurn(){
+  G._turnPhase='turn_end';
+  document.getElementById('turn-indicator').classList.remove('active');
+
+  var alive=G.enemies.filter(function(e){return e.hp>0});
+  if(alive.length===0){
+    G._turnPhase='idle';
+    return;
+  }
+
+  setTimeout(function(){
+    if(G.sub==='fight'&&G.enemies.some(function(e){return e.hp>0})){
+      showTurnCards();
+    }
+  },400);
 }
 
 // ===================== COMBAT INPUT =====================
@@ -2145,7 +2303,7 @@ function handleCombatTap(x,y){
 function showCarryOver(){
   G.phase='carry';G.carrySelected=new Set();
   document.getElementById('carry-screen').classList.add('active');
-  document.getElementById('combat-ui').classList.remove('active');
+  document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
   var grid=document.getElementById('carry-grid');grid.innerHTML='';
   for(var entry of G.placed){
     var uid=entry[0],w=entry[1];
@@ -2176,7 +2334,7 @@ function confirmCarry(){
 
 function gameOver(victory){
   G.phase='gameover';G.running=false;
-  document.getElementById('combat-ui').classList.remove('active');
+  document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
   document.getElementById('lobby').classList.remove('active');
   document.getElementById('lobby-backdrop').classList.remove('active');
   var sp=G.wavesCleared*100+G.kills*2;
@@ -2202,7 +2360,6 @@ function gameLoop(ts){
       drawCombat(G.sub==='backpack'||G.sub==='loot'?0:dt);
       if(G.phase==='combat'&&G.sub!=='backpack'&&G.sub!=='loot'){
         updateCombat(dt);
-        if(G.sub==='fight'&&Math.floor(G.combatTimer*10)!==Math.floor((G.combatTimer-dt)*10))updateCombatSlots();
       }
     }
     // Grid slot scan animation
