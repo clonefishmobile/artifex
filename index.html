@@ -141,21 +141,48 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
 #skip-btn:disabled{opacity:.3;cursor:not-allowed}
 #ready-btn{background:linear-gradient(135deg,var(--gold),var(--gold-dark));border-color:var(--gold);color:#1a1a2e}
 
-/* COMBAT UI */
+/* COMBAT UI (old, kept for compat) */
 #combat-ui{position:absolute;bottom:0;left:0;right:0;z-index:10;display:none}
 #combat-ui.active{display:block}
-#combat-slots{display:flex;justify-content:center;gap:10px;
-  padding:6px 14px 10px;
-  background:linear-gradient(0deg,rgba(0,0,0,.7),transparent)}
-.combat-slot{width:76px;height:76px;border-radius:50%;border:3px solid #555;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:28px;
-  cursor:pointer;position:relative;transition:all .15s;overflow:hidden}
-.combat-slot:active{transform:scale(.85)}
-.combat-slot .cd-sweep{position:absolute;inset:-3px;border-radius:50%;pointer-events:none}
-.combat-slot .cd-text{position:absolute;bottom:2px;font-size:11px;font-weight:900;color:#fff;
-  text-shadow:0 1px 3px rgba(0,0,0,.9);pointer-events:none}
-.combat-slot.ready-pulse{animation:readyPulse 1s infinite}
-@keyframes readyPulse{0%,100%{box-shadow:0 0 8px rgba(46,204,113,.3)}50%{box-shadow:0 0 20px rgba(46,204,113,.7)}}
+#combat-slots{display:none}
+
+/* COMBAT SLOT PANEL (new — 5 reels + Attack/Reroll) */
+#combat-slot-panel{position:absolute;bottom:0;left:0;right:0;z-index:12;display:none;
+  flex-direction:column;align-items:center;gap:6px;padding:8px 6px 12px;
+  background:linear-gradient(0deg,rgba(0,0,0,.85) 70%,transparent)}
+#combat-slot-panel.active{display:flex}
+#combat-reels{display:flex;gap:6px;justify-content:center}
+.combat-reel{width:58px;height:64px;border:2px solid #555;border-radius:10px;overflow:hidden;
+  background:rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;transition:border-color .3s,box-shadow .3s}
+.combat-reel.spinning{border-color:#888}
+.combat-reel.resolved{border-color:var(--gold);box-shadow:0 0 12px rgba(241,196,15,.5)}
+.combat-reel.empty-result{border-color:var(--red);box-shadow:0 0 10px rgba(231,76,60,.4)}
+.combat-reel .cr-icon{font-size:28px;line-height:1;transition:opacity .15s}
+.combat-reel .cr-name{font-size:7px;color:rgba(255,255,255,.6);max-width:54px;overflow:hidden;
+  white-space:nowrap;text-align:center}
+.combat-reel .cr-tier{font-size:8px;font-weight:900;position:absolute;bottom:1px;right:3px;
+  text-shadow:0 1px 2px rgba(0,0,0,.8)}
+@keyframes reelSpin{
+  0%{transform:translateY(0);opacity:1}
+  25%{transform:translateY(-8px);opacity:.4}
+  50%{transform:translateY(0);opacity:1}
+  75%{transform:translateY(8px);opacity:.4}
+  100%{transform:translateY(0);opacity:1}
+}
+.combat-reel.spinning .cr-icon{animation:reelSpin .2s linear infinite}
+#combat-actions{display:flex;gap:12px;margin-top:2px}
+#attack-btn{padding:10px 36px;font-size:16px;font-weight:700;
+  background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;
+  border:2px solid var(--red-glow);border-radius:10px;cursor:pointer;
+  letter-spacing:2px;transition:all .2s;opacity:1}
+#attack-btn:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.8)}
+#attack-btn:not(:disabled):active{transform:scale(.92)}
+#reroll-btn{padding:10px 24px;font-size:14px;font-weight:700;
+  background:transparent;color:var(--gold);border:2px solid var(--gold);border-radius:10px;
+  cursor:pointer;letter-spacing:1px;transition:all .2s}
+#reroll-btn:disabled{opacity:.35;cursor:not-allowed}
+#reroll-btn:not(:disabled):active{transform:scale(.92)}
 /* ATTACK CARDS */
 #turn-cards{display:none;position:absolute;bottom:0;left:0;right:0;z-index:12;
   padding:8px 10px 12px;background:linear-gradient(0deg,rgba(0,0,0,.85) 60%,transparent);
@@ -377,9 +404,8 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
     <button onclick="startGame()">НАЧАТЬ ИГРУ</button>
     <div class="controls-hint">
       Перетаскивай оружие в сетку 5×7<br>
-      R / кнопка — повернуть при перетаскивании<br>
-      Тап по оружию в сетке — в активный слот<br>
-      Пошаговый бой: выбирай карту атаки каждый ход
+      В бою: слоты крутятся → жми ATTACK<br>
+      REROLL — перекрутить слоты заново
     </div>
   </div>
   <div id="hud" style="display:none">
@@ -419,6 +445,13 @@ html,body{width:100%;height:100svh;background:var(--bg);color:var(--text);
   <div id="combo-display" style="display:none">
     <div id="combo-count">x1</div>
     <div id="combo-label">COMBO</div>
+  </div>
+  <div id="combat-slot-panel">
+    <div id="combat-reels"></div>
+    <div id="combat-actions">
+      <button id="attack-btn" disabled onclick="executeCombatAttack()">⚔ ATTACK</button>
+      <button id="reroll-btn" disabled onclick="rerollCombatSlots()">⟳ REROLL</button>
+    </div>
   </div>
   <div id="turn-indicator"></div>
   <div id="turn-cards"></div>
@@ -1296,6 +1329,7 @@ function startWalking(){
   G.enemies=[];G.projectiles=[];G.effects=[];
   hideLootDrop();
   document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
+  document.getElementById('combat-slot-panel').classList.remove('active');
   dlog('startWalking room='+G.room+' roomWave='+G._roomWave);
   updateWaveCounter();
 }
@@ -1335,7 +1369,7 @@ function updateWalking(dt){
       for(var fi=0;fi<G.enemies.length;fi++){
         G.enemies[fi]._approachScale=1;
       }
-      showTurnCards();
+      startCombatSlots();
       dlog('enemies arrived, fight begins, roomWave='+G._roomWave);
     }
   }
@@ -1347,6 +1381,15 @@ function onWaveCleared(){
   G._sentinelUsed=false;
   G.projectiles=[];
   dlog('wave cleared, roomWave='+G._roomWave+'/'+G._roomWaveTotal);
+
+  if(G._roomWave>=G._roomWaveTotal){
+    dlog('all waves done -> onRoomCleared');
+    showNotif('ROOM CLEARED!','#F1C40F');
+    document.getElementById('combat-slot-panel').classList.remove('active');
+    onRoomCleared();
+    return;
+  }
+
   showNotif('WAVE '+G._roomWave+'/3 CLEARED!','#F1C40F');
 
   // Generate 3 loot items and show drop cards
@@ -1357,6 +1400,7 @@ function onWaveCleared(){
   // Always go to backpack after wave — player presses BATTLE to continue
   G.sub='backpack';
   document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
+  document.getElementById('combat-slot-panel').classList.remove('active');
   dlog('wave cleared, opening backpack with loot');
   openBpOverlay();
 }
@@ -1818,16 +1862,16 @@ function openBpOverlay(){
 }
 
 function closeBpOverlay(){
-  dlog('closeBpOverlay -> grid slot scan');
+  dlog('closeBpOverlay -> startWalking');
   recalcSynergies();
   var hpB=synMaxHpBonus();G.hero.maxHp=Math.floor((100+(G.hero.level-1)*10)*(1+hpB));
   G.hero.hp=Math.min(G.hero.hp,G.hero.maxHp);
   updateHUD();
-  // Hide loot, BATTLE button; show reels below grid
   hideLootDrop();
-  document.getElementById('lobby-actions').style.display='none';
-  document.getElementById('slot-machine').classList.add('active');
-  startGridSlotScan();
+  document.getElementById('lobby').classList.remove('active');
+  document.getElementById('lobby-backdrop').classList.remove('active');
+  document.getElementById('lobby-actions').style.display='';
+  startWalking();
 }
 
 // ===================== GRID SLOT SCAN =====================
@@ -2238,7 +2282,154 @@ document.addEventListener('keydown',function(e){
 // ===================== COMBAT UI =====================
 function updateCombatSlots(){}
 
-// ===================== TURN-BASED CARD SYSTEM =====================
+// ===================== COMBAT SLOT SYSTEM (5 reels in fight) =====================
+function getReelWeapons(colIdx){
+  var seen=new Set();var weapons=[];
+  for(var r=0;r<GROWS;r++){
+    var uid=G.grid[r*GCOLS+colIdx];
+    if(uid&&!seen.has(uid)){
+      seen.add(uid);
+      weapons.push(G.placed.get(uid));
+    }
+  }
+  return weapons;
+}
+
+function startCombatSlots(){
+  G._turnPhase='slots_spinning';
+  G._combatSlots={results:new Array(GCOLS).fill(null),resolved:0,reels:[]};
+  var panel=document.getElementById('combat-slot-panel');
+  panel.classList.add('active');
+  var reelsEl=document.getElementById('combat-reels');reelsEl.innerHTML='';
+  document.getElementById('attack-btn').disabled=true;
+  document.getElementById('reroll-btn').disabled=true;
+
+  var indicator=document.getElementById('turn-indicator');
+  indicator.textContent='YOUR TURN';
+  indicator.className='active player-turn';
+
+  for(var i=0;i<GCOLS;i++){
+    var reel=document.createElement('div');reel.className='combat-reel spinning';reel.id='creel-'+i;
+    var weapons=getReelWeapons(i);
+    reel.innerHTML='<span class="cr-icon">?</span><span class="cr-name">...</span>';
+    reelsEl.appendChild(reel);
+    G._combatSlots.reels.push({col:i,weapons:weapons,tickTimer:0,tickIdx:0,stopped:false});
+  }
+
+  for(var ri=0;ri<GCOLS;ri++){
+    (function(idx){
+      setTimeout(function(){stopCombatReel(idx)},1200+idx*350);
+    })(ri);
+  }
+}
+
+function updateCombatSlotAnim(dt){
+  if(!G._combatSlots||G._turnPhase!=='slots_spinning')return;
+  for(var i=0;i<G._combatSlots.reels.length;i++){
+    var r=G._combatSlots.reels[i];
+    if(r.stopped||r.weapons.length===0)continue;
+    r.tickTimer+=dt;
+    if(r.tickTimer>=0.08){
+      r.tickTimer=0;
+      r.tickIdx=(r.tickIdx+1)%r.weapons.length;
+      var w=r.weapons[r.tickIdx];
+      var el=document.getElementById('creel-'+i);
+      if(el){
+        el.querySelector('.cr-icon').textContent=w.icon;
+        el.querySelector('.cr-name').textContent=w.name;
+      }
+    }
+  }
+}
+
+function stopCombatReel(idx){
+  if(!G._combatSlots)return;
+  var r=G._combatSlots.reels[idx];
+  if(r.stopped)return;
+  r.stopped=true;
+
+  var el=document.getElementById('creel-'+idx);
+  if(!el)return;
+  el.classList.remove('spinning');
+
+  if(r.weapons.length===0){
+    G._combatSlots.results[idx]=null;
+    el.classList.add('empty-result');
+    el.innerHTML='<span class="cr-icon" style="font-size:28px;color:var(--red)">✕</span><span class="cr-name" style="color:var(--red)">empty</span>';
+    sfxSlotFail();
+  }else{
+    var picked=r.weapons[Math.floor(Math.random()*r.weapons.length)];
+    G._combatSlots.results[idx]=picked;
+    el.classList.add('resolved');
+    var tc=tierColor(picked.tier);
+    el.innerHTML='<span class="cr-icon" style="font-size:28px">'+picked.icon+'</span>'
+      +'<span class="cr-name" style="color:'+tc+';font-weight:700">'+picked.name+'</span>'
+      +'<span class="cr-tier" style="color:'+tc+'">T'+picked.tier+'</span>';
+    sfxSlotResolve();
+  }
+  sfxSlotTick(3);
+
+  G._combatSlots.resolved++;
+  if(G._combatSlots.resolved>=GCOLS){
+    finishCombatSlots();
+  }
+}
+
+function finishCombatSlots(){
+  G._turnPhase='player_choose';
+  document.getElementById('attack-btn').disabled=false;
+  document.getElementById('reroll-btn').disabled=false;
+}
+
+function rerollCombatSlots(){
+  if(G._turnPhase==='slots_spinning')return;
+  startCombatSlots();
+}
+
+function executeCombatAttack(){
+  if(G._turnPhase!=='player_choose')return;
+  G._turnPhase='player_attack';
+  document.getElementById('attack-btn').disabled=true;
+  document.getElementById('reroll-btn').disabled=true;
+
+  var results=G._combatSlots.results;
+  var weapons=[];
+  for(var i=0;i<results.length;i++){if(results[i])weapons.push(results[i])}
+
+  var target=getAtkTarget();
+  if(!target){G._turnPhase='idle';return;}
+
+  var totalDmg=0;
+  if(weapons.length===0){
+    totalDmg=Math.floor(G.hero.damage*0.5);
+  }else{
+    for(var wi=0;wi<weapons.length;wi++){
+      var w=weapons[wi];
+      var d=G.hero.damage*synDmgBonus()*(w.baseDmgMul||1)*tierEffMul(w.tier||1);
+      totalDmg+=Math.floor(d);
+    }
+  }
+
+  var isCrit=Math.random()<G.hero.crit;
+  if(isCrit)totalDmg=Math.floor(totalDmg*1.5);
+
+  target.hp-=totalDmg;
+  target._hitFlash=0.3;
+  target._hitShakeX=(Math.random()-0.5)*15;
+  target._hitShakeY=(Math.random()-0.5)*8;
+  G.totalDamage+=totalDmg;
+  addFloat(target,totalDmg,isCrit?'#F1C40F':'#fff',isCrit);
+  if(isCrit){sfxCrit();showBigLabel('CRIT!','#F1C40F',totalDmg+' DMG')}
+  else{sfxHit();showBigLabel('HIT!','#2ECC71',totalDmg+' DMG')}
+  flashAbility(weapons.length>0?tierColor(weapons[0].tier||1):'#fff');
+  var v=synVamp();if(v>0)G.hero.hp=Math.min(G.hero.hp+Math.floor(totalDmg*v),G.hero.maxHp);
+  if(target.hp<=0)onEnemyDeath(target);
+  updateHUD();
+
+  setTimeout(function(){enemyTurnAttack()},1000);
+}
+
+// ===================== TURN-BASED CARD SYSTEM (kept, not called) =====================
 function generateTurnCards(){
   var cards=[];
   var usedParts={};
@@ -2427,7 +2618,7 @@ function endTurn(){
 
   setTimeout(function(){
     if(G.sub==='fight'&&G.enemies.some(function(e){return e.hp>0})){
-      showTurnCards();
+      startCombatSlots();
     }
   },400);
 }
@@ -2494,6 +2685,7 @@ function confirmCarry(){
 function gameOver(victory){
   G.phase='gameover';G.running=false;
   document.getElementById('turn-cards').classList.remove('active');document.getElementById('turn-indicator').className='';
+  document.getElementById('combat-slot-panel').classList.remove('active');
   document.getElementById('lobby').classList.remove('active');
   document.getElementById('lobby-backdrop').classList.remove('active');
   var sp=G.wavesCleared*100+G.kills*2;
@@ -2521,8 +2713,10 @@ function gameLoop(ts){
         updateCombat(dt);
       }
     }
-    // Grid slot scan animation
+    // Grid slot scan animation (lobby — legacy)
     if(G._slotScanActive)updateGridSlotScan(dt);
+    // Combat slot reel animation
+    if(G._turnPhase==='slots_spinning')updateCombatSlotAnim(dt);
     // Debug snapshot during combat
     if(G.phase==='combat')dlogSnapshot(dt);
   }catch(err){console.error('Game loop error:',err)}
